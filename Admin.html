@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Tatsu FGC – Admin</title>
+<style>
+:root{--bg:#0c0b10;--panel:#16141d;--ink:#f5f5f5;--muted:#a9a6b8;--orange:#ff7a1a;--line:#34303f;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif;padding:1.25rem}
+h1{margin:0 0 1rem;font-size:1.6rem}
+.bar{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem}
+input,button{font:inherit;padding:.6rem .8rem;border-radius:2px;border:2px solid var(--line);background:var(--panel);color:var(--ink)}
+input{flex:1;min-width:200px}
+button{background:var(--orange);color:#150a02;font-weight:700;border-color:var(--orange);cursor:pointer}
+button.ghost{background:var(--panel);color:var(--ink);border-color:var(--line)}
+#msg{color:var(--muted);margin:.5rem 0}
+.wrap{overflow-x:auto;border:2px solid var(--line)}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th,td{padding:.5rem .7rem;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:var(--panel);color:var(--orange);position:sticky;top:0}
+</style>
+</head>
+<body>
+<h1>Registrations</h1>
+<div class="bar">
+  <input id="key" type="password" placeholder="Admin key" autocomplete="current-password">
+  <button id="load" type="button">Load</button>
+  <input id="q" type="search" placeholder="Search name, tag, game..." disabled>
+  <button id="csv" class="ghost" type="button" disabled>Download CSV</button>
+</div>
+<div id="msg"></div>
+<div class="wrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div>
+ 
+<script>
+// Paste your Web app URL here. It must end in /exec
+var ENDPOINT = 'https://script.google.com/macros/s/AKfycbzvUe4Gnk9tieVEoUt4tW8RrK538_nuzFj6PK3lCjPPD6ptLh3ITNpmZRZ0lP8OJFmz5w/exec';
+ 
+var headers=[],rows=[];
+var msg=document.getElementById('msg'),head=document.getElementById('head'),body=document.getElementById('body'),
+    q=document.getElementById('q'),csvBtn=document.getElementById('csv');
+ 
+function render(){
+  var term=q.value.trim().toLowerCase();
+  head.innerHTML='';body.innerHTML='';
+  var tr=document.createElement('tr');
+  headers.forEach(function(h){var th=document.createElement('th');th.textContent=h;tr.appendChild(th);});
+  head.appendChild(tr);
+  var shown=rows.filter(function(r){return !term||r.join(' ').toLowerCase().indexOf(term)>-1;});
+  shown.slice().reverse().forEach(function(r){
+    var tr=document.createElement('tr');
+    r.forEach(function(c,i){
+      var td=document.createElement('td');
+      td.textContent=i===0?new Date(c).toLocaleString():c;
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+  msg.textContent=shown.length+' of '+rows.length+' registrations';
+}
+ 
+document.getElementById('load').addEventListener('click',function(){
+  var key=document.getElementById('key').value;
+  if(!key){msg.textContent='Enter your admin key.';return;}
+  msg.textContent='Loading...';
+  fetch(ENDPOINT+'?action=list&key='+encodeURIComponent(key))
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(!res.ok){msg.textContent=res.error||'Could not load.';return;}
+      headers=res.headers;rows=res.rows;
+      q.disabled=false;csvBtn.disabled=false;render();
+    })
+    .catch(function(){msg.textContent='Could not reach the database. Check ENDPOINT.';});
+});
+q.addEventListener('input',render);
+ 
+csvBtn.addEventListener('click',function(){
+  function esc(v){v=String(v);if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';}
+  var lines=[headers].concat(rows).map(function(r){return r.map(esc).join(',');});
+  var blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tatsu-registrations.csv';
+  document.body.appendChild(a);a.click();a.remove();
+});
+</script>
+</body>
+</html>
+ 
